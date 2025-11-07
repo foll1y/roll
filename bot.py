@@ -54,6 +54,15 @@ async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Никто не присоединился к игре.")
         return
 
+    # Если только один участник — отдаем ему все GEO
+    if len(joined_users) == 1:
+        user = joined_users[0]
+        geos = ", ".join(GEO_RULES.keys())
+        await update.message.reply_text(f"{user} получает все гео: {geos}")
+        return
+
+
+
     users = joined_users.copy()
     geos = list(GEO_POSITIONS.keys())
     assigned = {}
