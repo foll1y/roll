@@ -15,7 +15,6 @@ GEO_RULES = {
     "PKR": "attachable"
 }
 
-}
 
 # === Команды ===
 
