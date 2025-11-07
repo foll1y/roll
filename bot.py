@@ -1,64 +1,140 @@
 import random
 from telegram import Update
-from telegram.ext import ContextTypes
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-# Пример GEO_RULES
+# ------------------ НАСТРОЙКИ ------------------
+BOT_TOKEN = "8450971744:AAEyHw6T6de18xodzn9J5gqsQwyh8kfc4fI"  # токен от @BotFather
+
+# ------------------ ДАННЫЕ ------------------
+joined_users = []  # список участников
+
 GEO_RULES = {
+    # attachable — если выпал, больше не получает других GEO
     "NPR": "attachable",
     "BDT": "attachable",
+    "PKR": "attachable",
+
+    # fixed — назначаются целиком как блок (не делятся)
     "Асана, переключения, Рабочие, Контакты": "fixed",
     "СНГ, LKR": "fixed",
+
+    # splittable — можно делить на отдельные GEO при нехватке участников
     "EGP, MAD": "splittable",
-    "PKR": "attachable"
 }
 
+
+# ------------------ ВСПОМОГАТЕЛЬНЫЕ ------------------
+
+def expand_splittable(rules):
+    """
+    Делит только splittable GEO, если понадобится.
+    Остальные (fixed и attachable) остаются как есть.
+    """
+    expanded = {}
+    for key, val in rules.items():
+        if val == "splittable":
+            parts = [x.strip() for x in key.split(",")]
+            for part in parts:
+                expanded[part] = val
+        else:
+            expanded[key] = val
+    return expanded
+
+
+EXPANDED_RULES = expand_splittable(GEO_RULES)
+
+
+# ------------------ КОМАНДЫ ------------------
+
+async def join(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global joined_users
+    user = update.effective_user.first_name
+    if user not in joined_users:
+        joined_users.append(user)
+        await update.message.reply_text(f"✅ {user} присоединился к игре!")
+    else:
+        await update.message.reply_text(f"⚠️ {user}, ты уже в списке.")
+
+
+async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global joined_users
+    joined_users.clear()
+    await update.message.reply_text("🔄 Список участников сброшен.")
+
+
 async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global joined_users
+
     if not joined_users:
         await update.message.reply_text("❌ Никто не присоединился к игре.")
-        return
-
-    # Если один игрок — получает всё
-    if len(joined_users) == 1:
-        user = joined_users[0]
-        all_geos = ", ".join(GEO_RULES.keys())
-        await update.message.reply_text(f"{user} получает все гео: {all_geos}")
         return
 
     users = joined_users.copy()
     random.shuffle(users)
 
-    geos = list(GEO_RULES.keys())
-    random.shuffle(geos)
+    assigned = {u: [] for u in users}
+    locked = set()  # кто больше не может получать GEO
 
-    assigned = {user: [] for user in users}
+    # --- Этап 1: распределяем splittable ---
+    splittable_keys = [k for k, v in EXPANDED_RULES.items() if v == "splittable"]
+    random.shuffle(splittable_keys)
 
-    # --- Этап 1: распределяем "fixed" GEO равномерно ---
-    fixed_geos = [g for g, t in GEO_RULES.items() if t == "fixed"]
-    for i, geo in enumerate(fixed_geos):
-        target = users[i % len(users)]
-        assigned[target].append(geo)
-
-    # --- Этап 2: распределяем "attachable" GEO ---
-    attachable_geos = [g for g, t in GEO_RULES.items() if t == "attachable"]
-    for geo in attachable_geos:
-        # Найдём у кого меньше всего GEO, чтобы баланс был ровным
+    # если участников меньше, можно разделить EGP и MAD отдельно
+    for geo in splittable_keys:
         target = min(assigned, key=lambda u: len(assigned[u]))
         assigned[target].append(geo)
 
-    # --- Этап 3: распределяем "splittable" GEO ---
-    splittable_geos = [g for g, t in GEO_RULES.items() if t == "splittable"]
-    for geo in splittable_geos:
-        # Эти можно отдать нескольким игрокам, но равномерно
-        targets = random.sample(users, k=min(len(users), 2))  # максимум двум
-        for t in targets:
-            assigned[t].append(geo + " (shared)")
+    # --- Этап 2: распределяем fixed и attachable ---
+    fixed_attachable = [(k, v) for k, v in GEO_RULES.items() if v in ("fixed", "attachable")]
+    random.shuffle(fixed_attachable)
 
-    # --- Формируем вывод ---
+    for geo, gtype in fixed_attachable:
+        available = [u for u in users if u not in locked]
+        if not available:
+            available = users.copy()
+
+        target = min(available, key=lambda u: len(assigned[u]))
+        assigned[target].append(geo)
+
+        # Если хватает GEO, блокируем
+        if len(fixed_attachable) <= len(users):
+            locked.add(target)
+
+    # --- Этап 3: проверяем, чтобы все что-то получили ---
+    unassigned = [u for u in users if not assigned[u]]
+    all_geos = list(EXPANDED_RULES.keys()) + list(GEO_RULES.keys())
+    used_geos = [geo for geos in assigned.values() for geo in geos]
+    leftovers = [g for g in all_geos if g not in used_geos]
+
+    for user in unassigned:
+        if leftovers:
+            assigned[user].append(leftovers.pop())
+        else:
+            # если GEO закончились, делим "shared"
+            random_user = random.choice(users)
+            assigned[user].append(f"{random_user}'s GEO (shared)")
+
+    # --- Формируем сообщение ---
     lines = []
     for user, geolist in assigned.items():
-        if geolist:
-            lines.append(f"{user} — {', '.join(geolist)}")
-        else:
-            lines.append(f"{user} — без назначения ❌")
+        lines.append(f"{user} — {', '.join(geolist)}")
 
+    lines.append("\n⚖️ Распределение завершено — все получили GEO!")
     await update.message.reply_text("\n".join(lines))
+
+
+# ------------------ ИНИЦИАЛИЗАЦИЯ БОТА ------------------
+
+def main():
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
+
+    app.add_handler(CommandHandler("join", join))
+    app.add_handler(CommandHandler("roll", roll))
+    app.add_handler(CommandHandler("reset", reset))
+
+    print("🤖 Бот запущен. Слава Омниссии!")
+    app.run_polling()
+
+
+if __name__ == "__main__":
+    main()
