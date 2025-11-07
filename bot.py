@@ -5,14 +5,16 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 # === Глобальные переменные ===
 joined_users = []
 
-# Гео и их правила
-GEO_POSITIONS = {
-    "NPR": {"split": True, "can_attach": True},
-    "BDT": {"split": True, "can_attach": True},
-    "Асана, переключения, Рабочие, Контакты": {"split": False, "can_attach": True},
-    "СНГ, LKR": {"split": False, "can_attach": True},
-    "EGP, MAD": {"split": True, "can_attach": True},
-    "PKR": {"split": True, "can_attach": True},
+# === Гео и правила распределения ===
+GEO_RULES = {
+    "NPR": "attachable",
+    "BDT": "attachable",
+    "Асана, переключения, Рабочие, Контакты": "fixed",
+    "СНГ, LKR": "fixed",
+    "EGP, MAD": "splittable",
+    "PKR": "attachable"
+}
+
 }
 
 # === Команды ===
