@@ -10,7 +10,6 @@ joined_users = []  # список участников
 
 GEO_RULES = {
     # attachable — если выпал, больше не получает других GEO
-    "NPR": "attachable",
     "BDT": "attachable",
     "PKR": "attachable",
 
@@ -19,7 +18,8 @@ GEO_RULES = {
     "СНГ, LKR": "fixed",
 
     # splittable — можно делить на отдельные GEO при нехватке участников
-    "EGP, MAD": "splittable",
+    "EGP, MAD, NPR": "splittable",
+
 }
 
 
