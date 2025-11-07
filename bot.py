@@ -25,17 +25,17 @@ async def join(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if username not in joined_users:
         joined_users.append(username)
-        await update.message.reply_text(f"{username} присоединился к смене.")
+        await update.message.reply_text(f"{username} присоединился к игре.")
     else:
         await update.message.reply_text(f"{username}, ты уже в списке.")
 
 async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not joined_users:
-        await update.message.reply_text("❌ Никто не присоединился к смене.")
+        await update.message.reply_text("❌ Никто не присоединился к игре.")
         return
 
     if len(joined_users) < len(GEO_POSITIONS):
-        await update.message.reply_text("⚠️ Недостаточно людей для распределения всех GEO.")
+        await update.message.reply_text("⚠️ Недостаточно людей для розыгрыша GEO.")
         return
 
     lines = [f"{user} {geo}" for user, geo in zip(joined_users, GEO_POSITIONS)]
@@ -47,7 +47,7 @@ async def list_members(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     members = "\n".join([f"{i+1}. {u}" for i, u in enumerate(joined_users)])
-    await update.message.reply_text(f"👥 Участники смены:\n{members}")
+    await update.message.reply_text(f"👥 Участники игры:\n{members}")
 
 async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     joined_users.clear()
