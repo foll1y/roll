@@ -2,7 +2,7 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 # === Конфигурация ===
-TOKEN = "ВАШ_ТОКЕН_БОТА"  # ← вставь токен своего бота
+TOKEN = 8450971744:AAEyHw6T6de18xodzn9J5gqsQwyh8kfc4fI  # ← вставь токен своего бота
 
 # Фиксированные GEO позиции
 GEO_POSITIONS = [
