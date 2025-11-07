@@ -1,7 +1,7 @@
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 # === Конфигурация ===
-TOKEN = "8450971744:AAEyHw6T6de18xodzn9J5gqsQwyh8kfc4fI"  # ← вставь токен своего бота
+#TOKEN = "8450971744:AAEyHw6T6de18xodzn9J5gqsQwyh8kfc4fI"  # ← вставь токен своего бота
 # === Глобальные переменные ===
 joined_users = []
 
@@ -101,7 +101,7 @@ async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # === Основной запуск ===
 def main():
-    app = ApplicationBuilder().token("ТВОЙ_ТОКЕН_ОТ_BOTFATHER").build()
+    app = ApplicationBuilder().token("8450971744:AAEyHw6T6de18xodzn9J5gqsQwyh8kfc4fI").build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("join", join))
