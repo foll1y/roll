@@ -1,7 +1,10 @@
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+import random
+
 # === Конфигурация ===
-#TOKEN = "8450971744:AAEyHw6T6de18xodzn9J5gqsQwyh8kfc4fI"  # ← вставь токен своего бота
+TOKEN = "8450971744:AAEyHw6T6de18xodzn9J5gqsQwyh8kfc4fI"  # ← вставь сюда токен
+
 # === Глобальные переменные ===
 joined_users = []
 
@@ -20,13 +23,14 @@ GEO_RULES = {
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "🎰 Привет! Я бот для распределения GEO по смене.\n"
+        "🎰 Привет! Я бот для распределения GEO по смене.\n\n"
         "Доступные команды:\n"
         "/join — присоединиться к игре\n"
         "/list — посмотреть участников\n"
         "/roll — распределить GEO\n"
         "/reset — очистить список"
     )
+
 
 async def join(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -38,6 +42,7 @@ async def join(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text(f"{username}, ты уже в списке.")
 
+
 async def list_members(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not joined_users:
         await update.message.reply_text("📭 Пока никто не присоединился.")
@@ -46,72 +51,61 @@ async def list_members(update: Update, context: ContextTypes.DEFAULT_TYPE):
     members = "\n".join([f"{i+1}. {u}" for i, u in enumerate(joined_users)])
     await update.message.reply_text(f"👥 Участники игры:\n{members}")
 
+
 async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     joined_users.clear()
     await update.message.reply_text("♻️ Список участников очищен.")
+
 
 async def roll(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not joined_users:
         await update.message.reply_text("❌ Никто не присоединился к игре.")
         return
 
-    # Если только один участник — отдаем ему все GEO
+    # Если только один участник — он получает всё
     if len(joined_users) == 1:
         user = joined_users[0]
         geos = ", ".join(GEO_RULES.keys())
         await update.message.reply_text(f"{user} получает все гео: {geos}")
         return
 
+    players = joined_users.copy()
+    assigned = {player: [] for player in players}
 
+    # === 1. Распределяем "fixed" GEO ===
+    for geo, rule in GEO_RULES.items():
+        if rule == "fixed" and players:
+            player = players.pop(0)
+            assigned[player].append(geo)
 
-    users = joined_users.copy()
-    geos = list(GEO_POSITIONS.keys())
-    assigned = {}
-
-    # Если участников меньше, чем гео
-    if len(users) < len(geos):
-        await update.message.reply_text("⚠️ Участников меньше, чем GEO. Применяю адаптивное распределение...")
-
-        # Распределяем базовые позиции
-        for user in users:
-            if geos:
-                geo = geos.pop(0)
-                assigned[user] = [geo]
-            else:
-                assigned[user] = []
-
-        # Оставшиеся гео добавляем по правилам
-        for geo in geos:
-            info = GEO_POSITIONS[geo]
-            if info["split"]:
-                # Присоединяем к случайному игроку
+    # === 2. Распределяем "splittable" GEO ===
+    for geo, rule in GEO_RULES.items():
+        if rule == "splittable":
+            parts = geo.split(", ")
+            for part in parts:
                 target = random.choice(list(assigned.keys()))
-                assigned[target].append(geo)
-            else:
-                # Ищем, куда можно безопасно прикрепить
-                possible_targets = [
-                    u for u in assigned if any(GEO_POSITIONS[g]["can_attach"] for g in assigned[u])
-                ]
-                if possible_targets:
-                    target = random.choice(possible_targets)
-                    assigned[target].append(geo)
-                else:
-                    # если никто не подходит — просто кому-то
-                    assigned[random.choice(list(assigned.keys()))].append(geo)
-    else:
-        # Если участников достаточно — классическое распределение
-        assigned = {user: [geo] for user, geo in zip(users, geos)}
+                assigned[target].append(part)
 
-    # Формируем ответ
+    # === 3. Распределяем "attachable" GEO ===
+    for geo, rule in GEO_RULES.items():
+        if rule == "attachable":
+            target = random.choice(list(assigned.keys()))
+            assigned[target].append(geo)
+
+    # === Формируем сообщение ===
     lines = []
-    for user, geolist in assigned.items():
-        lines.append(f"{user} {', '.join(geolist)}")
+    for player, geos in assigned.items():
+        if geos:
+            lines.append(f"{player} — {', '.join(geos)}")
+        else:
+            lines.append(f"{player} — без назначения")
 
     await update.message.reply_text("\n".join(lines))
 
+
 # === Основной запуск ===
 def main():
-    app = ApplicationBuilder().token("8450971744:AAEyHw6T6de18xodzn9J5gqsQwyh8kfc4fI").build()
+    app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("join", join))
@@ -119,7 +113,9 @@ def main():
     app.add_handler(CommandHandler("roll", roll))
     app.add_handler(CommandHandler("reset", reset))
 
+    print("🤖 Бот запущен. Ожидание команд...")
     app.run_polling()
+
 
 if __name__ == "__main__":
     main()
